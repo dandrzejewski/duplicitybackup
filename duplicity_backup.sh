@@ -21,7 +21,7 @@ export EXCLUDES=
 export DIRLIST=
 export MAIL_USER=
 
-. ./.vars.sh
+. $(dirname $0)/.vars.sh
 
 export DUPLICITY=/usr/local/bin/duplicity
 export MACHINE_NAME=`hostname`
