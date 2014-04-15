@@ -20,6 +20,8 @@ export RETAIN=
 export EXCLUDES=
 export DIRLIST=
 export MAIL_USER=
+export LOG_ARCHIVE_DIR=/root/backuplogs
+export LOG_ARCHIVE_DAYS=30
 
 . $(dirname $0)/.vars.sh
 
@@ -37,11 +39,21 @@ export HOME="/root"
 # Get the date
 repDate=`date +%Y%m%d`
 
-export BACKUP_LOG=/root/backuplogs/incremental_backup_log_${repDate}_${MACHINE_NAME}.log
+export BACKUP_LOG=${LOG_ARCHIVE_DIR}/${BACKUP_TYPE}_backup_log_${repDate}_${MACHINE_NAME}.log
 
 echo >> ${BACKUP_LOG}
 echo "********************************************" >> ${BACKUP_LOG}
 echo >> ${BACKUP_LOG}
+
+pgrep -f $0
+if [ $? -ne 1 ]; then
+	echo "Duplicity backup process failed - already running!" >> ${BACKUP_LOG}
+	mail -s "Duplicity backup failure" ${MAIL_USER} < ${BACKUP_LOG}
+	exit 1
+fi	
+
+# Remove old backup logs
+find ${LOG_ARCHIVE_DIR} -mtime +${LOG_ARCHIVE_DAYS} -type f -delete
 
 # Do the backup
 echo "Performing Backup..." >> ${BACKUP_LOG}
@@ -63,5 +75,5 @@ echo >> ${BACKUP_LOG}
 /usr/bin/ssh ${SSH_OPTIONS} ${SSH_USER}@${SERVER} quota 2>&1 >> ${BACKUP_LOG}
 
 # Mail me the results
-mail -s "${MACHINE_NAME} Backup Incremental" ${MAIL_USER} < ${BACKUP_LOG}
+mail -s "${MACHINE_NAME} Backup ${BACKUP_TYPE}" ${MAIL_USER} < ${BACKUP_LOG}
 
