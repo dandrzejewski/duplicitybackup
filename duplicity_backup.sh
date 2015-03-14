@@ -22,6 +22,7 @@ export DIRLIST=
 export MAIL_USER=
 export LOG_ARCHIVE_DIR=/root/backuplogs
 export LOG_ARCHIVE_DAYS=30
+export PASSPHRASE=""
 
 . $(dirname $0)/.vars.sh
 
@@ -36,16 +37,34 @@ export HOME="/root"
 
 # ************* Hopefully you shouldn't need to modify anything below here.
 
+
+if [ -z ${1} ]; then
+	echo "You must specify full or incremental."
+	exit 1
+fi
+
 # Get the date
-repDate=`date +%Y%m%d`
+repDate=`date +%Y%m%d%H%M`
+
 
 export BACKUP_LOG=${LOG_ARCHIVE_DIR}/${BACKUP_TYPE}_backup_log_${repDate}_${MACHINE_NAME}.log
+export SCRIPT_NAME=$( basename ${0} )
+
+logit()
+{
+	local header="$1"
+	local body="$2"
+
+	echo "${header} $( ${date} "+%b %d %Y: %H:%M" ) ${body}" >> ${BACKUP_LOG}
+}
+
+
 
 echo >> ${BACKUP_LOG}
 echo "********************************************" >> ${BACKUP_LOG}
 echo >> ${BACKUP_LOG}
 
-pgrep -f $0
+pgrep -f ${SCRIPT_NAME}
 if [ $? -ne 1 ]; then
 	echo "Duplicity backup process failed - already running!" >> ${BACKUP_LOG}
 	mail -s "Duplicity backup failure" ${MAIL_USER} < ${BACKUP_LOG}
@@ -53,6 +72,14 @@ if [ $? -ne 1 ]; then
 fi	
 
 # Remove old backup logs
+
+
+LEN=${#LOG_ARCHIVE_DIR}
+
+if [ ${LEN} -lt 5 ]; then
+	echo "You should check your log archive directory config.  Currently: ${LOG_ARCHIVE_DIR}"
+	exit 1
+fi	
 find ${LOG_ARCHIVE_DIR} -mtime +${LOG_ARCHIVE_DAYS} -type f -delete
 
 # Do the backup
@@ -65,7 +92,7 @@ ${DUPLICITY} remove-older-than ${RETAIN} --force --ssh-options "${SSH_OPTIONS}" 
 
 echo >> ${BACKUP_LOG}
 # Get list of backups
-${DUPLICITY} collection-status --ssh-options "${SSH_OPTIONS}" sftp://${SSH_USER}@${SERVER}/${MACHINE_NAME} 2>&1 >> ${BACKUP_LOG}
+${DUPLICITY} collection-status  --ssh-options "${SSH_OPTIONS}" sftp://${SSH_USER}@${SERVER}/${MACHINE_NAME} 2>&1 >> ${BACKUP_LOG}
 echo >> ${BACKUP_LOG}
 
 # Get the disk space
